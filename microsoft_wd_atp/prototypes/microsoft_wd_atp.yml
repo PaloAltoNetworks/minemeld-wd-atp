@@ -1,0 +1,20 @@
+url: https://www.microsoft.com/en-us/windowsforbusiness/windows-atp
+description: >
+  Nodes for Microsoft Windows Defender ATP API
+
+prototypes:
+  output:
+    author: Palo Alto Networks TBD
+    class: microsoft_wd_atp.Output
+    development_status: EXPERIMENTAL
+    node_type: output
+    indicator_types:
+      - URL
+      - IPv4
+      - domain
+    tags:
+      - extension
+      - wd-atp
+    description: >
+      Output node for Microsoft Windows Defender ATP API
+    config: {}

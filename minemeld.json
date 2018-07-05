@@ -1,0 +1,19 @@
+{
+    "version": "0.1",
+    "name": "minemeld-wd-atp",
+    "author": "Palo Alto Networks",
+    "author_email": "techbizdev@paloaltonetworks.com",
+    "description": "MineMeld Nodes for Microsoft WD-ATP API",
+    "entry_points": {
+        "minemeld_nodes": {
+            "microsoft_wd_atp.Output": "microsoft_wd_atp.node:Output"
+        },
+        "minemeld_prototypes": {
+            "microsoft_wd_atp.prototypes": "microsoft_wd_atp:prototypes"
+        },
+        "minemeld_webui": {
+            "microsoftWDATPWebui": "microsoft_wd_atp:webui_blueprint"
+        }
+    },
+    "manifest_version": 0
+}
