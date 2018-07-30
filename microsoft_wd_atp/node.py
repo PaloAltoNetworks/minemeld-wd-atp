@@ -298,6 +298,10 @@ class Output(ActorBaseFT):
             result['Url'] = indicator
         elif type_ == 'domain':
             result['DNSDomainName'] = indicator
+        elif type_ == 'md5':
+            result['FileMD5'] = indicator
+        elif type_ == 'sha256':
+            result['FileSha256'] = indicator
         else:
             self.statistics['error.unhandled_type'] += 1
             raise RuntimeError('{} - Unhandled {}'.format(self.name, type_))
@@ -369,7 +373,6 @@ class Output(ActorBaseFT):
     def hup(self, source=None):
         LOG.info('%s - hup received, reload side config', self.name)
         self._load_side_config()
-        super(Output, self).hup(source)
 
     @staticmethod
     def gc(name, config=None):
