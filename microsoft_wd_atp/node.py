@@ -308,7 +308,7 @@ class Output(ActorBaseFT):
                 a1, a2 = indicator.split('-', 1)
                 indicator = netaddr.IPRange(a1, a2).cidrs()[0]
 
-            parsed = netaddr.IPNetwork(indicator)
+            parsed = str(netaddr.IPNetwork(indicator))
             if parsed.size == 1:
                 result['NetworkDestinationIPv4'] = indicator
             else:
