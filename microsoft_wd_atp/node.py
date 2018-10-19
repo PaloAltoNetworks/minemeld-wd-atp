@@ -308,11 +308,11 @@ class Output(ActorBaseFT):
                 a1, a2 = indicator.split('-', 1)
                 indicator = netaddr.IPRange(a1, a2).cidrs()[0]
 
-            parsed = str(netaddr.IPNetwork(indicator))
+            parsed = netaddr.IPNetwork(indicator)
             if parsed.size == 1:
-                result['NetworkDestinationIPv4'] = indicator
+                result['NetworkDestinationIPv4'] = str(indicator)
             else:
-                result['NetworkDestinationCidrBlock'] = indicator
+                result['NetworkDestinationCidrBlock'] = str(indicator)
 
         else:
             self.statistics['error.unhandled_type'] += 1
