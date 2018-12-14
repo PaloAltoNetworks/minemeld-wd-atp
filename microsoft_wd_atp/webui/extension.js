@@ -62,7 +62,8 @@ function MSFTWDATPSideConfigController($scope, MinemeldConfigService, MineMeldRu
 
         return MinemeldConfigService.saveDataFile(
             nodename + '_side_config',
-            side_config
+            side_config,
+            nodename
         );
     };
 

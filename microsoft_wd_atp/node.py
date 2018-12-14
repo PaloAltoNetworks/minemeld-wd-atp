@@ -3,6 +3,7 @@ import os
 import shutil
 import time
 import uuid
+import netaddr
 from datetime import datetime, timedelta
 from collections import deque
 
@@ -302,6 +303,17 @@ class Output(ActorBaseFT):
             result['FileMD5'] = indicator
         elif type_ == 'sha256':
             result['FileSha256'] = indicator
+        elif type_ == 'IPv4':
+            if '-' in indicator:
+                a1, a2 = indicator.split('-', 1)
+                indicator = netaddr.IPRange(a1, a2).cidrs()[0]
+
+            parsed = netaddr.IPNetwork(indicator)
+            if parsed.size == 1:
+                result['NetworkDestinationIPv4'] = str(indicator)
+            else:
+                result['NetworkDestinationCidrBlock'] = str(indicator)
+
         else:
             self.statistics['error.unhandled_type'] += 1
             raise RuntimeError('{} - Unhandled {}'.format(self.name, type_))
