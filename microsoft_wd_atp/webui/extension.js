@@ -257,6 +257,27 @@ angular.module('microsoftWDATPWebui', [])
             }]
         });
 
+        NodeDetailResolver.registerClass('microsoft_wd_atp.node.OutputBatch', {
+            tabs: [{
+                icon: 'fa fa-circle-o',
+                tooltip: 'INFO',
+                state: 'nodedetail.msftwdatpoutputinfo',
+                active: false
+            },
+            {
+                icon: 'fa fa-area-chart',
+                tooltip: 'STATS',
+                state: 'nodedetail.stats',
+                active: false
+            },
+            {
+                icon: 'fa fa-asterisk',
+                tooltip: 'GRAPH',
+                state: 'nodedetail.graph',
+                active: false
+            }]
+        });
+
         // if a nodedetail is already shown, reload the current state to apply changes
         // we should definitely find a better way to handle this...
         if ($state.$current.toString().startsWith('nodedetail.')) {

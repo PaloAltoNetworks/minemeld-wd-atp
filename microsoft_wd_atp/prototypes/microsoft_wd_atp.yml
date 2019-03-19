@@ -18,3 +18,21 @@ prototypes:
     description: >
       Output node for Microsoft Windows Defender ATP API
     config: {}
+
+  outputBatch:
+    author: Palo Alto Networks TBD
+    class: microsoft_wd_atp.OutputBatch
+    development_status: EXPERIMENTAL
+    node_type: output
+    indicator_types:
+      - URL
+      - IPv4
+      - domain
+      - sha1
+      - sha256
+    tags:
+      - extension
+      - wd-atp
+    description: >
+      Output node for Microsoft Windows Defender ATP API (Batch)
+    config: {}
