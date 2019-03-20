@@ -34,7 +34,7 @@ MM_2_WDATP_TYPE = {
     'domain': 'DomainName',
     'URL': 'Url'
 }
-WD_ATP_TIINDICATORS_ENDPOINT = 'https://api.securitycenter.windows.com/api/tiindicators/import'
+WD_ATP_TIINDICATORS_ENDPOINT = 'https://api.securitycenter.windows.com/api/indicators/import'
 
 class AuthConfigException(RuntimeError):
     pass
@@ -509,7 +509,7 @@ class OutputBatch(ActorBaseFT):
 
     def _push_indicators(self, token, indicators):
         message = {
-            'TiIndicators': list(indicators)
+            'Indicators': list(indicators)
         }
 
         LOG.debug(message)
@@ -606,18 +606,22 @@ class OutputBatch(ActorBaseFT):
         )
         title = 'MineMeld - {}'.format(indicator)
 
+        creation = datetime.utcnow()
+        creation = creation.isoformat() + 'Z'
+
         expiration = datetime.utcnow() + timedelta(days=365)
         if expired:
             expiration = datetime.fromtimestamp(0)
-        expiration = expiration.isoformat()
+        expiration = expiration.isoformat() + 'Z' # expiration is always in UTC
 
         result = []
         for i in indicators:
             d = dict(
-                indicator=i,
+                indicatorValue=i,
                 indicatorType=type_,
                 title=title,
                 description=description,
+                creationTimeDateTimeUtc=creation,
                 expirationTime=expiration,
                 action=self.action
             )
