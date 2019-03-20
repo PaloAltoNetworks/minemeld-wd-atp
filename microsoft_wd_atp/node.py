@@ -535,7 +535,7 @@ class OutputBatch(ActorBaseFT):
             artifacts.append(msg)
 
             try:
-                while len(artifacts) < 51:
+                while len(artifacts) < 50:
                     artifacts.append(self._queue.get_nowait())
             except Empty:
                 pass
