@@ -1,12 +1,13 @@
 {
-    "version": "0.2b4",
+    "version": "0.3",
     "name": "minemeld-wd-atp",
     "author": "Palo Alto Networks",
     "author_email": "techbizdev@paloaltonetworks.com",
     "description": "MineMeld Nodes for Microsoft WD-ATP API",
     "entry_points": {
         "minemeld_nodes": {
-            "microsoft_wd_atp.Output": "microsoft_wd_atp.node:Output"
+            "microsoft_wd_atp.Output": "microsoft_wd_atp.node:Output",
+            "microsoft_wd_atp.OutputBatch": "microsoft_wd_atp.node:OutputBatch"
         },
         "minemeld_prototypes": {
             "microsoft_wd_atp.prototypes": "microsoft_wd_atp:prototypes"
