@@ -6,7 +6,7 @@ prototypes:
   output:
     author: Palo Alto Networks TBD
     class: microsoft_wd_atp.Output
-    development_status: EXPERIMENTAL
+    development_status: DEPRECATED
     node_type: output
     indicator_types:
       - URL
@@ -16,7 +16,7 @@ prototypes:
       - extension
       - wd-atp
     description: >
-      Output node for Microsoft Windows Defender ATP API
+      Output node for Microsoft Windows Defender ATP API - DEPRECATED
     config: {}
 
   outputBatch:
