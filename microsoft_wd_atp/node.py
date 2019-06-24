@@ -200,28 +200,31 @@ class Output(ActorBaseFT):
         return endpoint, org_id
 
     def _push_indicators(self, token, endpoint, org_id, indicators):
-        message = {
-            'Id': self.api_client_id,
-            'SequenceNumber': self.sequence_number,
-            'SenderId': self.sender_id,
-            'Indicators': list(indicators),
-            'WdAtpOrgId': org_id
-        }
+        # DEPRECATED
 
-        LOG.debug(message)
+        # message = {
+        #     'Id': self.api_client_id,
+        #     'SequenceNumber': self.sequence_number,
+        #     'SenderId': self.sender_id,
+        #     'Indicators': list(indicators),
+        #     'WdAtpOrgId': org_id
+        # }
 
-        result = requests.post(
-            endpoint,
-            headers={
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer {}'.format(token)
-            },
-            json=message
-        )
+        # LOG.debug(message)
 
-        LOG.debug(result.text)
+        # result = requests.post(
+        #     endpoint,
+        #     headers={
+        #         'Content-Type': 'application/json',
+        #         'Authorization': 'Bearer {}'.format(token)
+        #     },
+        #     json=message
+        # )
 
-        result.raise_for_status()
+        # LOG.debug(result.text)
+
+        # result.raise_for_status()
+        raise RuntimeError("This output node is deprecated: please switch to OutputBatch")
 
     def _push_loop(self):
         while True:
@@ -241,18 +244,22 @@ class Output(ActorBaseFT):
 
                 try:
                     LOG.info('{} - Sending {}:{}'.format(self.name, self.api_client_id, self.sequence_number))
-                    token = self._get_auth_token()
+                    # DEPRECATED - no need to get the token
+                    # token = self._get_auth_token()
+                    token = "DEPRECATED"
                     LOG.debug('{} - token: {}'.format(self.name, token))
 
-                    endpoint, org_id = self._get_endpoint_orgid(token)
-                    LOG.debug('{} - endpoint: {} WdAtpOrgId: {}'.format(self.name, endpoint, org_id))
+                    # DEPRECATED
+                    #endpoint, org_id = self._get_endpoint_orgid(token)
+                    #LOG.debug('{} - endpoint: {} WdAtpOrgId: {}'.format(self.name, endpoint, org_id))
 
-                    self._push_indicators(
-                        token=token,
-                        endpoint=endpoint,
-                        org_id=org_id,
-                        indicators=artifacts
-                    )
+                    # self._push_indicators(
+                    #     token=token,
+                    #     endpoint=endpoint,
+                    #     org_id=org_id,
+                    #     indicators=artifacts
+                    # )
+                    self._push_indicators(None, None, None, None)
 
                     self.sequence_number += 1
                     self.statistics['indicator.tx'] += len(artifacts)
@@ -591,14 +598,16 @@ class OutputBatch(ActorBaseFT):
             self.statistics['error.unhandled_type'] += 1
             raise RuntimeError('{} - Unhandled {}'.format(self.name, type_))
 
-        indicators = [indicator]
         if value['type'] == 'IPv4':
             if '-' in indicator:
-                r = netaddr.IPRange(*indicator.split('-', 1))
+                a1, a2 = indicator.split('-', 1)
+                r = netaddr.IPRange(a1, a2).cidrs()[0]
             else:
                 r = netaddr.IPNetwork(indicator)
 
             indicators = [str(i) for i in r]
+        else:
+            indicators = [indicator]
 
         description = '{} indicator from {}'.format(
             type_,
