@@ -145,7 +145,7 @@ function MSFTWDATPSideConfigController($scope, MinemeldConfigService, MineMeldRu
 
     vm.setAction = function() {
         var mi = $modal.open({
-            templateUrl: '/extensions/webui/microsoftGSAWebui/wdatp.output.action.modal.html',
+            templateUrl: '/extensions/webui/microsoftWDATPWebui/wdatp.output.action.modal.html',
             controller: ['$modalInstance', MSFTWDATPActionController],
             controllerAs: 'vm',
             bindToController: true,
