@@ -40,7 +40,7 @@ function MSFTWDATPSideConfigController($scope, MinemeldConfigService, MineMeldRu
             }
             
             if (result.action) {
-                vm.client_id = result.action;
+                vm.action = result.action;
             } else {
                 vm.action = undefined;
             }
