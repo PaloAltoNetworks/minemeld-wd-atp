@@ -272,7 +272,7 @@ function MSFTWDATPActionController($modalInstance) {
     vm.save = function() {
         var result = {};
 
-        result.action = vm.action.charAt(0).toLowerCase() + vm.action.slice(1);
+        result.action = vm.action;
 
         $modalInstance.close(result);
     }
