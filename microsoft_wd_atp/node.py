@@ -14,7 +14,7 @@ import yaml
 import ujson as json
 from gevent.queue import Queue, Empty, Full
 from netaddr import IPNetwork
-from requests.exceptions import RequestException
+from requests.exceptions import RequestException, HTTPError
 
 from minemeld.ft import ft_states  #pylint: disable=E0401
 from minemeld.ft.base import _counting  #pylint: disable=E0401
@@ -39,6 +39,8 @@ WD_ATP_TIINDICATORS_ENDPOINT = 'https://api.securitycenter.windows.com/api/indic
 class AuthConfigException(RuntimeError):
     pass
 
+class WDATPResponseException(RuntimeError):
+    pass
 
 class Output(ActorBaseFT):
     def __init__(self, name, chassis, config):
@@ -224,7 +226,7 @@ class Output(ActorBaseFT):
         # LOG.debug(result.text)
 
         # result.raise_for_status()
-        raise RuntimeError('This output node is deprecated: please switch to OutputBatch')
+        raise WDATPResponseException('This output node is deprecated: please switch to OutputBatch')
 
     def _push_loop(self):
         while True:
@@ -283,6 +285,11 @@ class Output(ActorBaseFT):
                     LOG.exception('{} - Error submitting indicators - {}'.format(self.name, str(e)))
                     self.statistics['error.submit'] += 1
                     gevent.sleep(60.0)
+
+                except WDATPResponseException as e:
+                    LOG.exception('{} - error submitting indicators - {}'.format(self.name, str(e)))
+                    self.statistics['error.submit'] += 1
+                    break
 
                 except Exception as e:
                     LOG.exception('{} - error submitting indicators - {}'.format(self.name, str(e)))
@@ -535,22 +542,22 @@ class OutputBatch(ActorBaseFT):
         result.raise_for_status()
 
         # Check the status of the submitted indicators
-        # NOTE: if the indicator contains a range by _encode_indicators, a partial submission might go through
+        # NOTE: if the indicator contains a range split by _encode_indicators, a partial submission might go through
         # i.e. 192.168.0.1-192.168.0.3 can be split in 192.168.0.1/32 and 192.168.0.2/31
         # the first might go through, the second might return error
-        # This output node doesn't check for this condition (although the error counters are updated)
+        # This output node doesn't check for this condition (although the error counters are correctly updated)
 
         result = result.json()
         if not result or  '@odata.context' not in result or result['@odata.context'] != 'https://api.securitycenter.windows.com/api/$metadata#Collection(microsoft.windowsDefenderATP.api.ImportIndicatorResult)':
-            raise RuntimeError('Unexpected response from WDATP API')
+            raise WDATPResponseException('Unexpected response from WDATP API')
 
         if 'value' not in result:
-            raise RuntimeError('Missing value from WDATP API result')
+            raise WDATPResponseException('Missing value from WDATP API result')
 
         for v in result['value']:
             if 'indicator' not in v or 'isFailed' not in v:
-                raise RuntimeError('Missing indicator values from WDATP response')
-            LOG.debug('{} - Got a result for indicator {}: {}'.format(self.name, v['indicator'], v["isFailed"]))
+                raise WDATPResponseException('Missing indicator values from WDATP response')
+            LOG.debug('{} - Got result for indicator {}: isFailed is {}'.format(self.name, v['indicator'], v["isFailed"]))
             if not v["isFailed"]:
                 # Success!
                 self.statistics['indicator.tx'] += 1
@@ -573,7 +580,7 @@ class OutputBatch(ActorBaseFT):
                 pass
 
             while True:
-                result = None
+                retries = 0
 
                 try:
                     LOG.info('{} - Sending {} indicators'.format(self.name, len(artifacts)))
@@ -591,11 +598,12 @@ class OutputBatch(ActorBaseFT):
                 except gevent.GreenletExit:
                     return
 
-                except RequestException as e:
+                except HTTPError as e:
                     LOG.error('{} - error submitting indicators - {}'.format(self.name, str(e)))
+                    status_code = e.response.status_code
 
-                    if result is not None and result.status_code >= 400 and result.status_code < 500:
-                        LOG.error('{}: error in request - {}'.format(self.name, result.text))
+                    if status_code >= 400 and status_code < 500:
+                        LOG.error('{}: error in request - {}'.format(self.name, e.response.text))
                         self.statistics['error.invalid_request'] += 1
                         break
 
@@ -607,9 +615,17 @@ class OutputBatch(ActorBaseFT):
                     self.statistics['error.submit'] += 1
                     gevent.sleep(60.0)
 
+                except WDATPResponseException as e:
+                    LOG.exception('{} - error submitting indicators - {}'.format(self.name, str(e)))
+                    self.statistics['error.submit'] += 1
+                    break                    
+                    
                 except Exception as e:
                     LOG.exception('{} - error submitting indicators - {}'.format(self.name, str(e)))
                     self.statistics['error.submit'] += 1
+                    retries += 1
+                    if retries > 5:
+                        break
                     gevent.sleep(120.0)
 
             gevent.sleep(0.1)
