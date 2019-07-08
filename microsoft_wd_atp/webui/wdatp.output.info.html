@@ -24,7 +24,12 @@
                 </tr>
                 <tr>
                     <td>STATE</td>
-                    <td ng-switch on="vm.nodeState.state">
+                    <td ng-if="vm.nodeState.sub_state && vm.nodeState.sub_state === 'ERROR'">
+                        <span class="label label-danger"
+                            tooltip="{{ vm.nodeState.sub_state_message }}"
+                            ng-bind="vm.nodeState.sub_state"></span>
+                    </td>
+                    <td ng-if="!vm.nodeState.sub_state" ng-switch on="vm.nodeState.state">
                         <span ng-switch-when="5" class="label label-success">{{ vm.nodeState.stateAsString }}</span>
                         <span ng-switch-default class="label label-warning">{{ vm.nodeState.stateAsString }}</span>
                     </td>

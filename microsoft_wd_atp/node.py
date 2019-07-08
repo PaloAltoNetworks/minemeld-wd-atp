@@ -388,6 +388,13 @@ class Output(ActorBaseFT):
             value
         )
 
+    def mgmtbus_status(self):
+        result = super(ActorBaseFT, self).mgmtbus_status()
+        result['sub_state'] = 'ERROR'
+        result['sub_state_message'] = 'This node is deprecated'
+
+        return result
+
     def length(self, source=None):
         return self._queue.qsize()
 
