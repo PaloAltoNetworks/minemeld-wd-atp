@@ -93,6 +93,13 @@
                         <span ng-if="sideConfig.tenant_id">{{ sideConfig.tenant_id }}</span>
                     </td>
                 </tr>
+                <tr>
+                    <td>ACTION</td>
+                    <td tooltip="action" class="nodedetail-info-clickable" ng-click="sideConfig.setAction()">
+                        <span ng-if="!sideConfig.action"><em>Not set</em></span>
+                        <span ng-if="sideConfig.action">{{ sideConfig.action }}</span>
+                    </td>
+                </tr>                
             </tbody>
         </table>
     </div>

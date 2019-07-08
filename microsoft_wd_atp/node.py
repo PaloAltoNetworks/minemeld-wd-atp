@@ -14,7 +14,7 @@ import yaml
 import ujson as json
 from gevent.queue import Queue, Empty, Full
 from netaddr import IPNetwork
-from requests.exceptions import RequestException
+from requests.exceptions import RequestException, HTTPError
 
 from minemeld.ft import ft_states  #pylint: disable=E0401
 from minemeld.ft.base import _counting  #pylint: disable=E0401
@@ -39,6 +39,8 @@ WD_ATP_TIINDICATORS_ENDPOINT = 'https://api.securitycenter.windows.com/api/indic
 class AuthConfigException(RuntimeError):
     pass
 
+class WDATPResponseException(RuntimeError):
+    pass
 
 class Output(ActorBaseFT):
     def __init__(self, name, chassis, config):
@@ -200,28 +202,31 @@ class Output(ActorBaseFT):
         return endpoint, org_id
 
     def _push_indicators(self, token, endpoint, org_id, indicators):
-        message = {
-            'Id': self.api_client_id,
-            'SequenceNumber': self.sequence_number,
-            'SenderId': self.sender_id,
-            'Indicators': list(indicators),
-            'WdAtpOrgId': org_id
-        }
+        # DEPRECATED
 
-        LOG.debug(message)
+        # message = {
+        #     'Id': self.api_client_id,
+        #     'SequenceNumber': self.sequence_number,
+        #     'SenderId': self.sender_id,
+        #     'Indicators': list(indicators),
+        #     'WdAtpOrgId': org_id
+        # }
 
-        result = requests.post(
-            endpoint,
-            headers={
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer {}'.format(token)
-            },
-            json=message
-        )
+        # LOG.debug(message)
 
-        LOG.debug(result.text)
+        # result = requests.post(
+        #     endpoint,
+        #     headers={
+        #         'Content-Type': 'application/json',
+        #         'Authorization': 'Bearer {}'.format(token)
+        #     },
+        #     json=message
+        # )
 
-        result.raise_for_status()
+        # LOG.debug(result.text)
+
+        # result.raise_for_status()
+        raise WDATPResponseException('This output node is deprecated: please switch to OutputBatch')
 
     def _push_loop(self):
         while True:
@@ -241,18 +246,22 @@ class Output(ActorBaseFT):
 
                 try:
                     LOG.info('{} - Sending {}:{}'.format(self.name, self.api_client_id, self.sequence_number))
-                    token = self._get_auth_token()
+                    # DEPRECATED - no need to get the token
+                    # token = self._get_auth_token()
+                    token = 'DEPRECATED'
                     LOG.debug('{} - token: {}'.format(self.name, token))
 
-                    endpoint, org_id = self._get_endpoint_orgid(token)
-                    LOG.debug('{} - endpoint: {} WdAtpOrgId: {}'.format(self.name, endpoint, org_id))
+                    # DEPRECATED
+                    #endpoint, org_id = self._get_endpoint_orgid(token)
+                    #LOG.debug('{} - endpoint: {} WdAtpOrgId: {}'.format(self.name, endpoint, org_id))
 
-                    self._push_indicators(
-                        token=token,
-                        endpoint=endpoint,
-                        org_id=org_id,
-                        indicators=artifacts
-                    )
+                    # self._push_indicators(
+                    #     token=token,
+                    #     endpoint=endpoint,
+                    #     org_id=org_id,
+                    #     indicators=artifacts
+                    # )
+                    self._push_indicators(None, None, None, None)
 
                     self.sequence_number += 1
                     self.statistics['indicator.tx'] += len(artifacts)
@@ -276,6 +285,11 @@ class Output(ActorBaseFT):
                     LOG.exception('{} - Error submitting indicators - {}'.format(self.name, str(e)))
                     self.statistics['error.submit'] += 1
                     gevent.sleep(60.0)
+
+                except WDATPResponseException as e:
+                    LOG.exception('{} - error submitting indicators - {}'.format(self.name, str(e)))
+                    self.statistics['error.submit'] += 1
+                    break
 
                 except Exception as e:
                     LOG.exception('{} - error submitting indicators - {}'.format(self.name, str(e)))
@@ -527,6 +541,31 @@ class OutputBatch(ActorBaseFT):
 
         result.raise_for_status()
 
+        # Check the status of the submitted indicators
+        # NOTE: if the indicator contains a range split by _encode_indicators, a partial submission might go through
+        # i.e. 192.168.0.1-192.168.0.3 can be split in 192.168.0.1/32 and 192.168.0.2/31
+        # the first might go through, the second might return error
+        # This output node doesn't check for this condition (although the error counters are correctly updated)
+
+        result = result.json()
+        if not result or  '@odata.context' not in result or result['@odata.context'] != 'https://api.securitycenter.windows.com/api/$metadata#Collection(microsoft.windowsDefenderATP.api.ImportIndicatorResult)':
+            raise WDATPResponseException('Unexpected response from WDATP API')
+
+        if 'value' not in result:
+            raise WDATPResponseException('Missing value from WDATP API result')
+
+        for v in result['value']:
+            if 'indicator' not in v or 'isFailed' not in v:
+                raise WDATPResponseException('Missing indicator values from WDATP response')
+            LOG.debug('{} - Got result for indicator {}: isFailed is {}'.format(self.name, v['indicator'], v["isFailed"]))
+            if not v["isFailed"]:
+                # Success!
+                self.statistics['indicator.tx'] += 1
+            else:
+                failReason = v['failureReason'] if 'failureReason' in v else 'Unknown'
+                LOG.error('{}: error submitting indicator {}: {}'.format(self.name, v['indicator'], failReason))
+                self.statistics['error.submit'] += 1
+
     def _push_loop(self):
         while True:
             msg = self._queue.get()
@@ -541,7 +580,7 @@ class OutputBatch(ActorBaseFT):
                 pass
 
             while True:
-                result = None
+                retries = 0
 
                 try:
                     LOG.info('{} - Sending {} indicators'.format(self.name, len(artifacts)))
@@ -552,18 +591,19 @@ class OutputBatch(ActorBaseFT):
                         token=token,
                         indicators=artifacts
                     )
-
-                    self.statistics['indicator.tx'] += len(artifacts)
+                    # Counter already incremented in push_indicators
+                    # self.statistics['indicator.tx'] += len(artifacts)
                     break
 
                 except gevent.GreenletExit:
                     return
 
-                except RequestException as e:
+                except HTTPError as e:
                     LOG.error('{} - error submitting indicators - {}'.format(self.name, str(e)))
+                    status_code = e.response.status_code
 
-                    if result is not None and result.status_code >= 400 and result.status_code < 500:
-                        LOG.error('{}: error in request - {}'.format(self.name, result.text))
+                    if status_code >= 400 and status_code < 500:
+                        LOG.error('{}: error in request - {}'.format(self.name, e.response.text))
                         self.statistics['error.invalid_request'] += 1
                         break
 
@@ -575,9 +615,17 @@ class OutputBatch(ActorBaseFT):
                     self.statistics['error.submit'] += 1
                     gevent.sleep(60.0)
 
+                except WDATPResponseException as e:
+                    LOG.exception('{} - error submitting indicators - {}'.format(self.name, str(e)))
+                    self.statistics['error.submit'] += 1
+                    break                    
+                    
                 except Exception as e:
                     LOG.exception('{} - error submitting indicators - {}'.format(self.name, str(e)))
                     self.statistics['error.submit'] += 1
+                    retries += 1
+                    if retries > 5:
+                        break
                     gevent.sleep(120.0)
 
             gevent.sleep(0.1)
@@ -591,14 +639,12 @@ class OutputBatch(ActorBaseFT):
             self.statistics['error.unhandled_type'] += 1
             raise RuntimeError('{} - Unhandled {}'.format(self.name, type_))
 
-        indicators = [indicator]
-        if value['type'] == 'IPv4':
-            if '-' in indicator:
-                r = netaddr.IPRange(*indicator.split('-', 1))
-            else:
-                r = netaddr.IPNetwork(indicator)
-
+        if value['type'] == 'IPv4' and '-' in indicator:
+            a1, a2 = indicator.split('-', 1)
+            r = netaddr.IPRange(a1, a2).cidrs()
             indicators = [str(i) for i in r]
+        else:
+            indicators = [indicator]
 
         description = '{} indicator from {}'.format(
             type_,
