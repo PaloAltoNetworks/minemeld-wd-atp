@@ -10,6 +10,7 @@ function MSFTWDATPSideConfigController($scope, MinemeldConfigService, MineMeldRu
     vm.client_id = undefined;
     vm.client_secret = undefined;
     vm.tenant_id = undefined;
+    vm.action = undefined;
 
     vm.loadSideConfig = function() {
         var nodename = $scope.$parent.vm.nodename;
@@ -37,11 +38,18 @@ function MSFTWDATPSideConfigController($scope, MinemeldConfigService, MineMeldRu
             } else {
                 vm.tenant_id = undefined;
             }
+            
+            if (result.action) {
+                vm.action = result.action;
+            } else {
+                vm.action = undefined;
+            }
         }, (error) => {
             toastr.error('ERROR RETRIEVING NODE SIDE CONFIG: ' + error.status);
             vm.client_id = undefined;
             vm.client_secret = undefined;
             vm.tenant_id = undefined;
+            vm.action = undefined;
         });
     };
 
@@ -58,6 +66,9 @@ function MSFTWDATPSideConfigController($scope, MinemeldConfigService, MineMeldRu
         }
         if (vm.tenant_id) {
             side_config.tenant_id = vm.tenant_id;
+        }
+        if (vm.action) {
+            side_config.action = vm.action;
         }
 
         return MinemeldConfigService.saveDataFile(
@@ -88,6 +99,7 @@ function MSFTWDATPSideConfigController($scope, MinemeldConfigService, MineMeldRu
             });
         });
     };
+    
     vm.setClientSecret = function() {
         var mi = $modal.open({
             templateUrl: '/extensions/webui/microsoftWDATPWebui/wdatp.output.scs.modal.html',
@@ -127,6 +139,28 @@ function MSFTWDATPSideConfigController($scope, MinemeldConfigService, MineMeldRu
                 vm.loadSideConfig();
             }, (error) => {
                 toastr.error('ERROR SETTING TENANT ID: ' + error.statusText);
+            });
+        });
+    };
+
+    vm.setAction = function() {
+        var mi = $modal.open({
+            templateUrl: '/extensions/webui/microsoftWDATPWebui/wdatp.output.action.modal.html',
+            controller: ['$modalInstance', MSFTWDATPActionController],
+            controllerAs: 'vm',
+            bindToController: true,
+            backdrop: 'static',
+            animation: false
+        });
+
+        mi.result.then((result) => {
+            vm.action = result.action;
+
+            return vm.saveSideConfig().then((result) => {
+                toastr.success('ACTION SET');
+                vm.loadSideConfig();
+            }, (error) => {
+                toastr.error('ERROR SETTING ACTION: ' + error.statusText);
             });
         });
     };
@@ -213,6 +247,32 @@ function MSFTWDATPTenantIDController($modalInstance) {
         var result = {};
 
         result.tenant_id = vm.tenant_id;
+
+        $modalInstance.close(result);
+    }
+
+    vm.cancel = function() {
+        $modalInstance.dismiss();
+    }
+}
+
+function MSFTWDATPActionController($modalInstance) {
+    var vm = this;
+
+    vm.availableActions = ['Alert', 'AlertAndBlock', 'Allowed'];
+    vm.action = undefined;
+    vm.valid = function() {
+        if (!vm.action) {
+            return false;
+        }
+
+        return true;
+    };
+
+    vm.save = function() {
+        var result = {};
+
+        result.action = vm.action;
 
         $modalInstance.close(result);
     }
