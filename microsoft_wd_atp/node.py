@@ -301,6 +301,10 @@ class Output(ActorBaseFT):
     def _encode_indicator(self, indicator, value, expired=False):
         type_ = value['type']
 
+        if type_ not in [ 'URL', 'domain', 'md5', 'sha256', 'IPv4' ]:
+            self.statistics['error.unhandled_type'] += 1
+            raise RuntimeError('{} - Unhandled {}'.format(self.name, type_))
+
         description = '{} indicator from {}'.format(
             type_,
             ', '.join(value['sources'])
@@ -311,35 +315,42 @@ class Output(ActorBaseFT):
             expiration = datetime.fromtimestamp(0)
         expiration = expiration.isoformat()
 
-        result = {
-            'Description': description,
-            'Confidence': value['confidence'],
-            'ExternalId': external_id,
-            'IndicatorExpirationDateTime': expiration
-        }
-
-        if type_ == 'URL':
-            result['Url'] = indicator
-        elif type_ == 'domain':
-            result['DNSDomainName'] = indicator
-        elif type_ == 'md5':
-            result['FileMD5'] = indicator
-        elif type_ == 'sha256':
-            result['FileSha256'] = indicator
-        elif type_ == 'IPv4':
-            if '-' in indicator:
-                a1, a2 = indicator.split('-', 1)
-                indicator = netaddr.IPRange(a1, a2).cidrs()[0]
-
-            parsed = netaddr.IPNetwork(indicator)
-            if parsed.size == 1:
-                result['NetworkDestinationIPv4'] = str(indicator)
-            else:
-                result['NetworkDestinationCidrBlock'] = str(indicator)
-
+        indicators = []
+        if type_ == 'IPv4' and '-' in indicator:
+            # October 2020
+            # as MSFT removed the support for CIDRs in the API
+            # we must translate the ranges in individual IPv4 indicators
+            a1, a2 = indicator.split('-', 1)
+            r = netaddr.IPRange(a1, a2)
+            indicators = [str(i) for i in r]
         else:
-            self.statistics['error.unhandled_type'] += 1
-            raise RuntimeError('{} - Unhandled {}'.format(self.name, type_))
+            indicators = [indicator]
+
+
+        result = []
+        for i in indicators:
+            r = {
+                'Description': description,
+                'Confidence': value['confidence'],
+                'ExternalId': external_id,
+                'IndicatorExpirationDateTime': expiration
+            }
+            if type_ == 'URL':
+                r['Url'] = indicator
+            elif type_ == 'domain':
+                r['DNSDomainName'] = indicator
+            elif type_ == 'md5':
+                r['FileMD5'] = indicator
+            elif type_ == 'sha256':
+                r['FileSha256'] = indicator
+            elif type_ == 'IPv4':
+                r['NetworkDestinationIPv4'] = str(indicator)
+            else:
+                # Unsupported indicator type, should never reach this code
+                continue
+
+            LOG.debug('{!r} - add indicator {!r} to queue'.format(self.name, r))
+            result.append(r)
 
         return result
 
@@ -356,11 +367,12 @@ class Output(ActorBaseFT):
     @_counting('update.processed')
     def filtered_update(self, source=None, indicator=None, value=None):
         try:
-            self._queue.put(
-                self._encode_indicator(indicator, value, expired=False),
-                block=True,
-                timeout=0.001
-            )
+            for i in self._encode_indicator(indicator, value, expired=False):
+                self._queue.put(
+                    i,
+                    block=True,
+                    timeout=0.001
+                )
         except Full:
             self.statistics['error.queue_full'] += 1
 
@@ -371,10 +383,11 @@ class Output(ActorBaseFT):
             return
 
         try:
-            self._queue.put(
-                self._encode_indicator(indicator, value, expired=True),
-                block=True,
-                timeout=0.001
+            for i in self._encode_indicator(indicator, value, expired=True):
+                self._queue.put(
+                    i,
+                    block=True,
+                    timeout=0.001
             )
         except Full:
             self.statistics['error.queue_full'] += 1
@@ -550,7 +563,7 @@ class OutputBatch(ActorBaseFT):
 
         # Check the status of the submitted indicators
         # NOTE: if the indicator contains a range split by _encode_indicators, a partial submission might go through
-        # i.e. 192.168.0.1-192.168.0.3 can be split in 192.168.0.1/32 and 192.168.0.2/31
+        # i.e. 192.168.0.1-192.168.0.3 can be split in 192.168.0.1, 192.168.0.2 and 192.168.0.3
         # the first might go through, the second might return error
         # This output node doesn't check for this condition (although the error counters are correctly updated)
 
