@@ -661,7 +661,7 @@ class OutputBatch(ActorBaseFT):
 
         if value['type'] == 'IPv4' and '-' in indicator:
             a1, a2 = indicator.split('-', 1)
-            r = netaddr.IPRange(a1, a2).cidrs()
+            r = netaddr.IPRange(a1, a2)
             indicators = [str(i) for i in r]
         else:
             indicators = [indicator]
