@@ -11,6 +11,7 @@ function MSFTWDATPSideConfigController($scope, MinemeldConfigService, MineMeldRu
     vm.client_secret = undefined;
     vm.tenant_id = undefined;
     vm.action = undefined;
+    vm.severity = undefined;
 
     vm.loadSideConfig = function() {
         var nodename = $scope.$parent.vm.nodename;
@@ -44,12 +45,19 @@ function MSFTWDATPSideConfigController($scope, MinemeldConfigService, MineMeldRu
             } else {
                 vm.action = undefined;
             }
+
+            if (result.severity) {
+                vm.severity = result.severity;
+            } else {
+                vm.severity = undefined;
+            }
         }, (error) => {
             toastr.error('ERROR RETRIEVING NODE SIDE CONFIG: ' + error.status);
             vm.client_id = undefined;
             vm.client_secret = undefined;
             vm.tenant_id = undefined;
             vm.action = undefined;
+            vm.severity = undefined;
         });
     };
 
@@ -69,6 +77,9 @@ function MSFTWDATPSideConfigController($scope, MinemeldConfigService, MineMeldRu
         }
         if (vm.action) {
             side_config.action = vm.action;
+        }
+        if (vm.severity) {
+            side_config.severity = vm.severity;
         }
 
         return MinemeldConfigService.saveDataFile(
@@ -164,6 +175,28 @@ function MSFTWDATPSideConfigController($scope, MinemeldConfigService, MineMeldRu
             });
         });
     };
+
+    vm.setSeverity = function() {
+        var mi = $modal.open({
+            templateUrl: '/extensions/webui/microsoftWDATPWebui/wdatp.output.severity.modal.html',
+            controller: ['$modalInstance', MSFTWDATPSeverityController],
+            controllerAs: 'vm',
+            bindToController: true,
+            backdrop: 'static',
+            animation: false
+        });
+
+        mi.result.then((result) => {
+            vm.severity = result.severity;
+
+            return vm.saveSideConfig().then((result) => {
+                toastr.success('SEVERITY SET');
+                vm.loadSideConfig();
+            }, (error) => {
+                toastr.error('ERROR SETTING SEVERITY: ' + error.statusText);
+            });
+        })
+    }
 
     vm.loadSideConfig();
 }
@@ -281,6 +314,32 @@ function MSFTWDATPActionController($modalInstance) {
         $modalInstance.dismiss();
     }
 }
+
+function MSFTWDATPSeverityController($modalInstance) {
+    var vm = this;
+
+    vm.availableSeverity = ['Informational', 'Low', 'Medium', 'High'];
+    vm.severity = undefined;
+    vm.valid = function() {
+        if (!vm.severity) {
+            return false;
+        }
+
+        return true;
+    };
+
+    vm.save = function() {
+        var result = {};
+
+        result.severity = vm.severity;
+
+        $modalInstance.close(result);
+    };
+
+    vm.cancel = function() {
+        $modalInstance.dismiss();
+    };
+};
 
 angular.module('microsoftWDATPWebui', [])
     .controller('MSFTWDATPSideConfigController', [

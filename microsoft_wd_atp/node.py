@@ -496,6 +496,11 @@ class OutputBatch(ActorBaseFT):
             self.action = action
             LOG.info('{} - action set'.format(self.action))
 
+        severity = sconfig.get('severity', None)
+        if severity is not None:
+            self.severity = severity
+            LOG.info('{} - severity set'.format(self.name))
+
     def connect(self, inputs, output):
         output = False
         super(OutputBatch, self).connect(inputs, output)
