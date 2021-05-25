@@ -104,6 +104,13 @@
                         <span ng-if="!sideConfig.action"><em>Not set</em></span>
                         <span ng-if="sideConfig.action">{{ sideConfig.action }}</span>
                     </td>
+                </tr>
+                <tr>
+                    <td>SEVERITY</td>
+                    <td tooltip="action" class="nodedetail-info-clickable" ng-click="sideConfig.setSeverity()">
+                        <span ng-if="!sideConfig.severity"><em>Not set</em></span>
+                        <span ng-if="sideConfig.severity">{{ sideConfig.severity }}</span>
+                    </td>
                 </tr>                
             </tbody>
         </table>
